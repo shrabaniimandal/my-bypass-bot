@@ -5,7 +5,7 @@ from telegram.ext import Application, MessageHandler, filters, ContextTypes
 
 # ---------------------------------------------------------
 # এখানে তোমার বটের টোকেন বসাও
-TOKEN = '8679026449:AAHiFeIx17Tz8O03SjtCV6ptkT0sCaycMpA' 
+TOKEN = os.getenv('BOT_TOKEN') # সরাসরি টোকেন না লিখে পরিবেশ থেকে নিতে বলবে 
 # ---------------------------------------------------------
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
