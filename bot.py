@@ -1,62 +1,53 @@
 import os
 import subprocess
+import shutil
 from telegram import Update
 from telegram.ext import Application, MessageHandler, filters, ContextTypes
 
-# ---------------------------------------------------------
-# এখানে তোমার বটের টোকেন বসাও
-TOKEN = os.getenv('BOT_TOKEN') # সরাসরি টোকেন না লিখে পরিবেশ থেকে নিতে বলবে 
-# ---------------------------------------------------------
+# এখানে আমরা সরাসরি এনভায়রনমেন্ট ভেরিয়েবল থেকে টোকেন নিচ্ছি
+TOKEN = os.getenv('BOT_TOKEN')
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("👋 Hello! Send me an APK file, and I will try to bypass Play Protect and Antivirus for you. 🚀")
+    await update.message.reply_text("✅ Bot is now ACTIVE! Send me an APK and I'll process it.")
 
 async def handle_apk(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # ফাইলটি রিসিভ করা
     file = await update.message.document.get_file()
     chat_id = update.message.chat_id
     input_apk = f"input_{chat_id}.apk"
     output_apk = f"modded_{chat_id}.apk"
     
     await file.download_to_drive(input_apk)
-    await update.message.reply_text("⚙️ Processing your APK... Please wait. This may take a minute.")
+    await update.message.reply_text("⚙️ Processing... Please wait.")
 
     try:
-        # ১. ডিকম্পাইল (Apktool ব্যবহার করে)
-        # নোট: সার্ভারে apktool এবং java ইন্সটল থাকতে হবে
+        # Apktool process
         subprocess.run(['apktool', 'd', input_apk, '-o', 'decompiled_folder'], check=True)
-
-        # ২. সিম্পল অবফাসকেশন (প্যাকেজ নেম বা রিসোর্স পরিবর্তন করার লজিক এখানে থাকে)
-        # এখানে আমরা একটি সাধারণ ফাইল রিনেম প্রসেস করছি ডেমো হিসেবে
-        # আসল প্রফেশনাল অবফাসকেশন অনেক বড় স্ক্রিপ্ট হয়
-        os.rename('decompiled_folder/AndroidManifest.xml', 'decompiled_folder/AndroidManifest_mod.xml') 
-        # (নোট: এটি শুধু উদাহরণ, রিয়েল বাইপাসের জন্য Smali কোড এডিট করতে হয়)
-
-        # ৩. রিকম্পাইল
         subprocess.run(['apktool', 'b', 'decompiled_folder', '-o', output_apk], check=True)
+        
+        # Signing process
+        subprocess.run(['java', '-jar', '/uber-apk-signer.jar', '--apks', output_apk], check=True)
 
-        # ৪. সাইনিং (Sign APK)
-        # আমরা ধরে নিচ্ছি uber-apk-signer.jar সার্ভারে আছে
-        subprocess.run(['java', '-jar', 'uber-apk-signer.jar', '--apks', output_apk], check=True)
-
-        # ৫. ফাইনাল ফাইল পাঠানো
+        # Sending the file
         with open(f"{output_apk}-aligned-signed.apk", 'rb') as f:
-            await update.message.reply_document(f, caption="✅ Your bypassed APK is ready!")
+            await update.message.reply_document(f, caption="✅ Here is your bypassed APK!")
 
     except Exception as e:
-        await update.message.reply_text(f"❌ Error occurred: {str(e)}")
+        await update.message.reply_text(f"❌ Error: {str(e)}")
     
     finally:
-        # পরিষ্কার করা (Cleanup)
+        # Cleanup
         if os.path.exists(input_apk): os.remove(input_apk)
         if os.path.exists(output_apk): os.remove(output_apk)
-        # ফোল্ডার ডিলিট করার জন্য একটি ছোট লুপ
-        import shutil
         if os.path.exists('decompiled_folder'): shutil.rmtree('decompiled_folder')
 
-# মেইন ফাংশন
 if __name__ == "__main__":
-    print("Bot is starting...")
-    app = Application.builder().token(TOKEN).build()
-    app.add_handler(MessageHandler(filters.Document.APK, handle_apk))
-    app.run_polling()
+    if not TOKEN:
+        print("Error: BOT_TOKEN not found in environment variables!")
+    else:
+        print("Bot is starting...")
+        app = Application.builder().token(TOKEN).build()
+        app.add_handler(MessageHandler(filters.Document.APK, handle_apk))
+        # Start command support
+        from telegram.ext import CommandHandler
+        app.add_handler(CommandHandler("start", start))
+        app.run_polling()
