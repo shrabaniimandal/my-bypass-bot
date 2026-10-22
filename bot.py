@@ -1,44 +1,44 @@
 import os
-import sys
-import subprocess
-import shutil
-import threading # <--- এটি যোগ করো
-from http.server import HTTPServer, BaseHTTPRequestHandler # <--- এটি যোগ করো
-from telegram import Update
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from telegram.ext import Application, MessageHandler, filters, ContextTypes
 
-# ১. Render-এর জন্য একটি ছোট্ট হেলথ-চেক সার্ভার (যাতে ফ্রি-তে চলে)
+# হেলথ চেক হ্যান্ডলার (Render-এর জন্য প্রয়োজনীয়)
 class HealthCheckHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
+        self.send_header("Content-type", "text/plain")
         self.end_headers()
         self.wfile.write(b"Bot is alive and running!")
 
 def run_health_server():
-    # Render সাধারণত ১০০০০ পোর্ট ব্যবহার করে
-    server = HTTPServer(('0.0.0.0', 10000), HealthCheckHandler)
+    port = int(os.environ.get("PORT", 10000)) # ডাইনামিক পোর্ট ব্যবহার
+    server = HTTPServer(('0.0.0.0', port), HealthCheckHandler)
     server.serve_forever()
 
-# --- বাকি সব কোড তোমার আগের মতোই থাকবে ---
 TOKEN = os.environ.get('BOT_TOKEN')
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🤖 Bot is ACTIVE! Send me an APK.")
+async def start(update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Bot is ACTIVE! Send me an APK.")
 
-async def handle_apk(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # ... (তোমার আগের handle_apk ফাংশনটি এখানে থাকবে) ...
-    # আমি সংক্ষেপ করছি, তোমার আগের handle_apk কোডটিই রেখো।
-    pass 
+async def handle_apk(update, context: ContextTypes.DEFAULT_TYPE):
+    # এখানে আপনার APK প্রসেসিং কোড লিখুন
+    await update.message.reply_text("APK received! Processing...")
 
 if __name__ == "__main__":
     if not TOKEN:
         print("Error: BOT_TOKEN not found!")
-        sys.exit(1)
-    
-    # ২. এই লাইনটি যোগ করো: এটি আলাদা থ্রেডে সার্ভার চালাবে যাতে Render খুশি থাকে
+        exit(1)
+
+    # হেলথ সার্ভারটি আলাদা থ্রেডে চলবে যাতে Render মনে করে অ্যাপটি লাইভ আছে
     threading.Thread(target=run_health_server, daemon=True).start()
+
+    application = Application.builder().token(TOKEN).build()
     
-    app = Application.builder().token(TOKEN).build()
-    app.add_handler(MessageHandler(filters.Document.APK, handle_apk))
-    print("Bot is starting and Health Server is active on port 10000...")
-    app.run_polling()
+    # কমান্ড হ্যান্ডলার এবং ডকুমেন্ট হ্যান্ডলার যোগ করুন
+    from telegram.ext import CommandHandler
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(MessageHandler(filters.Document.ALL, handle_apk))
+
+    print("Bot is starting...")
+    application.run_polling()
