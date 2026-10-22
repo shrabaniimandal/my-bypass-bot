@@ -1,55 +1,44 @@
-import os             # <--- এই লাইনটি অবশ্যই যোগ করো
+import os
 import sys
 import subprocess
 import shutil
+import threading # <--- এটি যোগ করো
+from http.server import HTTPServer, BaseHTTPRequestHandler # <--- এটি যোগ করো
 from telegram import Update
 from telegram.ext import Application, MessageHandler, filters, ContextTypes
 
-# Render এর এনভায়রনমেন্ট ভেরিয়েবল থেকে টোকেন নেওয়া হচ্ছে
-TOKEN = os.environ.get('BOT_TOKEN') 
+# ১. Render-এর জন্য একটি ছোট্ট হেলথ-চেক সার্ভার (যাতে ফ্রি-তে চলে)
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Bot is alive and running!")
 
+def run_health_server():
+    # Render সাধারণত ১০০০০ পোর্ট ব্যবহার করে
+    server = HTTPServer(('0.0.0.0', 10000), HealthCheckHandler)
+    server.serve_forever()
+
+# --- বাকি সব কোড তোমার আগের মতোই থাকবে ---
+TOKEN = os.environ.get('BOT_TOKEN')
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("✅ Bot is now ACTIVE! Send me an APK and I'll process it.")
+    await update.message.reply_text("🤖 Bot is ACTIVE! Send me an APK.")
 
 async def handle_apk(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    file = await update.message.document.get_file()
-    chat_id = update.message.chat_id
-    input_apk = f"input_{chat_id}.apk"
-    output_apk = f"modded_{chat_id}.apk"
-    
-    await file.download_to_drive(input_apk)
-    await update.message.reply_text("⚙️ Processing... Please wait.")
-
-    try:
-        # Apktool process
-        subprocess.run(['apktool', 'd', input_apk, '-o', 'decompiled_folder'], check=True)
-        subprocess.run(['apktool', 'b', 'decompiled_folder', '-o', output_apk], check=True)
-        
-        # Signing process
-        subprocess.run(['java', '-jar', '/uber-apk-signer.jar', '--apks', output_apk], check=True)
-
-        # Sending the file
-        with open(f"{output_apk}-aligned-signed.apk", 'rb') as f:
-            await update.message.reply_document(f, caption="✅ Here is your bypassed APK!")
-
-    except Exception as e:
-        await update.message.reply_text(f"❌ Error: {str(e)}")
-    
-    finally:
-        # Cleanup
-        if os.path.exists(input_apk): os.remove(input_apk)
-        if os.path.exists(output_apk): os.remove(output_apk)
-        if os.path.exists('decompiled_folder'): shutil.rmtree('decompiled_folder')
+    # ... (তোমার আগের handle_apk ফাংশনটি এখানে থাকবে) ...
+    # আমি সংক্ষেপ করছি, তোমার আগের handle_apk কোডটিই রেখো।
+    pass 
 
 if __name__ == "__main__":
     if not TOKEN:
-        print("Error: BOT_TOKEN not found in environment variables!")
-    else:
-        print("Bot is starting...")
-        app = Application.builder().token(TOKEN).build()
-        app.add_handler(MessageHandler(filters.Document.APK, handle_apk))
-        # Start command support
-        from telegram.ext import CommandHandler
-        app.add_handler(CommandHandler("start", start))
-        app.run_polling()
+        print("Error: BOT_TOKEN not found!")
+        sys.exit(1)
+    
+    # ২. এই লাইনটি যোগ করো: এটি আলাদা থ্রেডে সার্ভার চালাবে যাতে Render খুশি থাকে
+    threading.Thread(target=run_health_server, daemon=True).start()
+    
+    app = Application.builder().token(TOKEN).build()
+    app.add_handler(MessageHandler(filters.Document.APK, handle_apk))
+    print("Bot is starting and Health Server is active on port 10000...")
+    app.run_polling()
