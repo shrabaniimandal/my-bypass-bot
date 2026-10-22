@@ -1,14 +1,10 @@
-FROM python:3.9
+FROM python:3.9-slim
 
-# Java এবং Apktool ইন্সটল করা
-RUN apt-get update && apt-get install -y openjdk-17-jre-headless wget
+# Java ইনস্টল করা (APK সাইনিং এর জন্য প্রয়োজন)
+RUN apt-get update && apt-get install -y openjdk-11-jdk wget unzip
 
-# Apktool এবং Signer ডাউনলোড করা
-RUN wget https://raw.githubusercontent.com/iBotPehenlo/Apktool/master/apktool && \
-    chmod +x apktool && \
-    mv apktool /usr/local/bin/apktool
-
-RUN wget https://github.com/kevinalbrawan/Uber-APK-Signer/releases/download/v0.2.4/uber-apk-signer.jar -O /uber-apk-signer.jar
+# APK Signer টুল ডাউনলোড করা
+RUN wget https://github.com/shcarry/uber-apk-signer/releases/download/v1.3/uber-apk-signer.jar -O /uber-apk-signer.jar
 
 WORKDIR /app
 COPY . .
