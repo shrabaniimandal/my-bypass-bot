@@ -1,11 +1,13 @@
-import os
+import os             # <--- এই লাইনটি অবশ্যই যোগ করো
+import sys
 import subprocess
 import shutil
 from telegram import Update
 from telegram.ext import Application, MessageHandler, filters, ContextTypes
 
-# এখানে আমরা সরাসরি এনভায়রনমেন্ট ভেরিয়েবল থেকে টোকেন নিচ্ছি
-TOKEN = os.getenv('BOT_TOKEN')
+# Render এর এনভায়রনমেন্ট ভেরিয়েবল থেকে টোকেন নেওয়া হচ্ছে
+TOKEN = os.environ.get('BOT_TOKEN') 
+
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("✅ Bot is now ACTIVE! Send me an APK and I'll process it.")
